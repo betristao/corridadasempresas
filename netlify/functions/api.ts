@@ -11,26 +11,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Fix CSP issues reported by user
+// Security headers as a fallback
 app.use((req, res, next) => {
-  res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; img-src * data:; font-src * data:; frame-ancestors 'self';");
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://www.strava.com; connect-src 'self' https://www.strava.com;");
   next();
 });
 
-// Log requests for debugging
+// Log requests
 app.use((req, res, next) => {
-  console.log(`[Backend Request] ${req.method} ${req.path} - Query: ${JSON.stringify(req.query)}`);
+  console.log(`[API Request] ${req.method} ${req.path}`);
   next();
 });
 
-// API health Check - using wildcard for robustness
-app.get("*/health", (req, res) => {
-  res.json({ status: "ok", path: req.path });
-});
+// Routes
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-// 1. Generate Strava OAuth URL
-app.get("*/auth/strava/url", (req, res) => {
-  const appUrl = process.env.APP_URL || "";
+app.get("/api/auth/strava/url", (req, res) => {
+  const appUrl = process.env.APP_URL || "https://corridadasempresas.netlify.app";
   const redirectUri = `${appUrl}/auth/callback`;
   
   const params = new URLSearchParams({
@@ -41,33 +38,19 @@ app.get("*/auth/strava/url", (req, res) => {
     scope: "read,activity:read",
   });
 
-  const authUrl = `https://www.strava.com/oauth/mobile/authorize?${params.toString()}`;
-  res.json({ url: authUrl });
+  res.json({ url: `https://www.strava.com/oauth/mobile/authorize?${params.toString()}` });
 });
 
-// 2. Strava OAuth Callback Handler
-// Using wildcard to match any prefix (like /api/auth/callback or /auth/callback)
-app.get("*/auth/callback", async (req, res) => {
+// Handle BOTH path possibilities after Netlify redirect
+app.get(["/auth/callback", "/api/auth/callback"], async (req, res) => {
   const { code, error } = req.query;
 
-  console.log(`[Strava Callback] code=${code ? 'present' : 'missing'}, error=${error || 'none'}`);
-
   if (error) {
-    return res.send(`
-      <html><body>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({ type: 'STRAVA_AUTH_ERROR', error: '${error}' }, '*');
-            window.close();
-          }
-        </script>
-        <p>Erro na autenticação: ${error}</p>
-      </body></html>
-    `);
+    return res.send(`<html><body><script>window.opener?.postMessage({type:'STRAVA_AUTH_ERROR',error:'${error}'},'*');window.close();</script><p>Erro: ${error}</p></body></html>`);
   }
 
   if (!code) {
-    return res.status(400).send("No code provided. Make sure to come from Strava.");
+    return res.status(400).send("No code provided by Strava");
   }
 
   try {
@@ -77,54 +60,29 @@ app.get("*/auth/callback", async (req, res) => {
       body: JSON.stringify({
         client_id: process.env.STRAVA_CLIENT_ID,
         client_secret: process.env.STRAVA_CLIENT_SECRET,
-        code: code,
+        code,
         grant_type: "authorization_code",
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to exchange token");
-    }
-
     const data = await response.json();
-    
+    if (!response.ok) throw new Error(data.message || "Token exchange failed");
+
     res.send(`
       <html><body>
         <script>
-          if (window.opener) {
-            window.opener.postMessage({ 
-              type: 'STRAVA_AUTH_SUCCESS', 
-              athlete: ${JSON.stringify(data.athlete)} 
-            }, '*');
-            window.close();
-          } else {
-            window.location.href = '/';
-          }
+          window.opener?.postMessage({ 
+            type: 'STRAVA_AUTH_SUCCESS', 
+            athlete: ${JSON.stringify(data.athlete)} 
+          }, '*');
+          window.close();
         </script>
-        <p>Autenticação com Strava concluída com sucesso! A redireccionar...</p>
+        <p>Sucesso! A redireccionar...</p>
       </body></html>
     `);
   } catch (err: any) {
-    console.error("Strava Exchange Error:", err);
-    res.send(`
-      <html><body>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({ type: 'STRAVA_AUTH_ERROR', error: '${err.message}' }, '*');
-            window.close();
-          }
-        </script>
-        <p>Erro ao trocar token com Strava: ${err.message}</p>
-      </body></html>
-    `);
+    res.send(`<html><body><script>window.opener?.postMessage({type:'STRAVA_AUTH_ERROR',error:'${err.message}'},'*');window.close();</script><p>Erro: ${err.message}</p></body></html>`);
   }
-});
-
-// Final catch-all for debugging
-app.use((req, res) => {
-  console.log(`[404] No route matched for ${req.path}`);
-  res.status(404).send(`Cannot ${req.method} ${req.path} (Catch-all reached)`);
 });
 
 export const handler = serverless(app);

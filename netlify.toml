@@ -5,14 +5,21 @@
 [functions]
   directory = "netlify/functions"
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://www.strava.com https://dgalywyr863hv.cloudfront.net; connect-src 'self' https://www.strava.com;"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
 
 [[redirects]]
-  from = "/auth/*"
-  to = "/.netlify/functions/api/auth/:splat"
+  from = "/auth/callback"
+  to = "/.netlify/functions/api/auth/callback"
   status = 200
 
 [[redirects]]
