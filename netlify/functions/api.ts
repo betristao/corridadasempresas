@@ -1,13 +1,23 @@
 import express from "express";
 import serverless from "serverless-http";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 
 const app = express();
+
+// Basic middleware
+app.use(cors());
 app.use(express.json());
 
-// API health endpoint
+// Log requests for debugging (will show up in Netlify logs)
+app.use((req, res, next) => {
+  console.log(`[Backend Request] ${req.method} ${req.path}`);
+  next();
+});
+
+// API health Check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -30,8 +40,11 @@ app.get("/api/auth/strava/url", (req, res) => {
 });
 
 // 2. Strava OAuth Callback Handler (Token Exchange)
-app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
+// We handle both /auth/callback and /api/auth/callback just in case
+app.get(["/auth/callback", "/api/auth/callback"], async (req, res) => {
   const { code, error } = req.query;
+
+  console.log(`[Strava Callback] code=${code ? 'present' : 'missing'}, error=${error || 'none'}`);
 
   if (error) {
     return res.send(`
@@ -100,6 +113,12 @@ app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
       </body></html>
     `);
   }
+});
+
+// Final catch-all for debugging
+app.use((req, res) => {
+  console.log(`[404] No route matched for ${req.path}`);
+  res.status(404).send(`Cannot ${req.method} ${req.path}`);
 });
 
 export const handler = serverless(app);
