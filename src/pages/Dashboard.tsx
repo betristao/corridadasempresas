@@ -34,11 +34,14 @@ export default function Dashboard() {
     stats?: {
       totalDistance: number,
       weeklyActivities: { day: string, km: number }[]
-    }
+    },
+    profilePic?: string
   } | null>(null);
 
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rankingTab, setRankingTab] = useState<'internal' | 'global'>('internal');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'weekly'>('all');
 
   useEffect(() => {
     const stored = localStorage.getItem('corprun_user');
@@ -62,6 +65,12 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [navigate]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('corprun_user');
+    localStorage.removeItem('strava_athlete_data');
+    navigate('/');
+  };
+
   if (!user || loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="animate-pulse flex flex-col items-center gap-4">
@@ -74,23 +83,30 @@ export default function Dashboard() {
   // 1. Internal Leaderboard (Users from the same company)
   const companyUsers = allUsers.filter(u => u.companyName === user.companyName);
   
+  const getUserKm = (u: any) => {
+    if (timeFilter === 'weekly' && u.stats?.weeklyActivities) {
+      return u.stats.weeklyActivities.reduce((acc: number, curr: any) => acc + (curr.km || 0), 0);
+    }
+    return u.stats?.totalDistance || 0;
+  };
+
   // If company has few users, mix with some mocks for the prototype display
   const internalLeaderboard = companyUsers.length >= 3 
     ? companyUsers.map((u, i) => ({
         rank: i + 1,
         name: u.id === localStorage.getItem('strava_athlete_data') ? `${u.name} (Tu)` : u.name,
-        km: u.stats?.totalDistance || 0,
+        km: getUserKm(u),
         me: u.name === user.name && u.companyName === user.companyName
-      }))
+      })).sort((a,b) => b.km - a.km).map((u, i) => ({...u, rank: i+1}))
     : [
         ...companyUsers.map((u, i) => ({
           rank: i + 1,
           name: u.name === user.name ? `${u.name} (Tu)` : u.name,
-          km: u.stats?.totalDistance || 0,
+          km: getUserKm(u),
           me: u.name === user.name
         })),
-        { rank: companyUsers.length + 1, name: "Sofia Silva (Demo)", km: 142.5, me: false },
-        { rank: companyUsers.length + 2, name: "João Santos (Demo)", km: 98.2, me: false }
+        { rank: companyUsers.length + 1, name: "Sofia Silva (Demo)", km: timeFilter === 'weekly' ? 12.5 : 142.5, me: false },
+        { rank: companyUsers.length + 2, name: "João Santos (Demo)", km: timeFilter === 'weekly' ? 8.4 : 98.2, me: false }
       ].sort((a, b) => b.km - a.km).map((p, i) => ({ ...p, rank: i + 1 }));
 
   // 2. Global B2B Ranking (Aggregated by Company)
@@ -99,7 +115,7 @@ export default function Dashboard() {
     if (!companyAggregation[u.companyName]) {
       companyAggregation[u.companyName] = { name: u.companyName, km: 0, userCount: 0 };
     }
-    companyAggregation[u.companyName].km += (u.stats?.totalDistance || 0);
+    companyAggregation[u.companyName].km += getUserKm(u);
     companyAggregation[u.companyName].userCount += 1;
   });
 
@@ -136,9 +152,17 @@ export default function Dashboard() {
               <Building2 size={16} className="text-slate-500" />
               <span>{user.companyName}</span>
             </div>
-            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold">
-              {user.name.charAt(0)}
-            </div>
+            <button 
+              onClick={handleLogout}
+              className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold hover:bg-orange-200 transition-colors overflow-hidden border border-orange-200"
+              title="Sair"
+            >
+              {user.profilePic ? (
+                <img src={user.profilePic} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                user.name.charAt(0)
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -230,39 +254,121 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Internal Leaderboard */}
+          {/* Improved Rankings Section */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-lg">Ranking Interno</h3>
-              <button className="text-sm text-orange-600 font-medium hover:text-orange-700">Ver todos</button>
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg">Classificações</h3>
+                
+                {/* Time Filter Toggle */}
+                <select 
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value as any)}
+                  className="text-xs font-bold bg-slate-100 border-none rounded-lg px-2 py-1 outline-none cursor-pointer"
+                >
+                  <option value="all">Sempre</option>
+                  <option value="weekly">Semana</option>
+                </select>
+              </div>
+              
+              {/* Tabs */}
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                <button 
+                  onClick={() => setRankingTab('internal')}
+                  className={cn(
+                    "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
+                    rankingTab === 'internal' ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  Interno
+                </button>
+                <button 
+                  onClick={() => setRankingTab('global')}
+                  className={cn(
+                    "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
+                    rankingTab === 'global' ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  Global
+                </button>
+              </div>
             </div>
             
             <div className="space-y-4 flex-1">
-              {internalLeaderboard.map((athlete) => (
-                <div 
-                  key={`${athlete.name}-${athlete.rank}`} 
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl transition-colors",
-                    athlete.me ? "bg-orange-50 border border-orange-100" : "hover:bg-slate-50"
-                  )}
-                >
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                    athlete.rank === 1 ? "bg-yellow-100 text-yellow-700" :
-                    athlete.rank === 2 ? "bg-slate-200 text-slate-700" :
-                    athlete.rank === 3 ? "bg-amber-100 text-amber-700" :
-                    "bg-slate-100 text-slate-500"
-                  )}>
-                    {athlete.rank}
+              {rankingTab === 'internal' ? (
+                internalLeaderboard.map((athlete) => (
+                  <div 
+                    key={`${athlete.name}-${athlete.rank}`} 
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl transition-colors",
+                      athlete.me ? "bg-orange-50 border border-orange-100" : "hover:bg-slate-50"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                      athlete.rank === 1 ? "bg-yellow-100 text-yellow-700" :
+                      athlete.rank === 2 ? "bg-slate-200 text-slate-700" :
+                      athlete.rank === 3 ? "bg-amber-100 text-amber-700" :
+                      "bg-slate-100 text-slate-500"
+                    )}>
+                      {athlete.rank}
+                    </div>
+                    
+                    {/* Athlete Avatar if internal */}
+                    <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
+                      {allUsers.find(u => u.name === athlete.name || (athlete.me && u.name === user.name))?.profilePic ? (
+                        <img 
+                          src={allUsers.find(u => u.name === athlete.name || (athlete.me && u.name === user.name))?.profilePic} 
+                          alt="" 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500">
+                          {athlete.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 font-medium text-sm truncate">
+                      {athlete.name}
+                    </div>
+                    <div className="font-bold text-sm">
+                      {athlete.km.toFixed(1)} <span className="text-slate-500 font-normal text-xs">km</span>
+                    </div>
                   </div>
-                  <div className="flex-1 font-medium text-sm truncate">
-                    {athlete.name}
+                ))
+              ) : (
+                globalRanking.map((comp, i) => (
+                  <div 
+                    key={comp.name} 
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl transition-colors",
+                      comp.name === user.companyName ? "bg-blue-50 border border-blue-100" : "hover:bg-slate-50"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                      i === 0 ? "bg-yellow-100 text-yellow-700" :
+                      i === 1 ? "bg-slate-200 text-slate-700" :
+                      i === 2 ? "bg-amber-100 text-amber-700" :
+                      "bg-slate-100 text-slate-500"
+                    )}>
+                      {i + 1}
+                    </div>
+                    
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                      <Building2 size={16} />
+                    </div>
+
+                    <div className="flex-1 font-medium text-sm truncate">
+                      {comp.name}
+                    </div>
+                    <div className="font-bold text-sm">
+                      {comp.km.toFixed(1)} <span className="text-slate-500 font-normal text-xs">km</span>
+                    </div>
                   </div>
-                  <div className="font-bold text-sm">
-                    {athlete.km.toFixed(1)} <span className="text-slate-500 font-normal text-xs">km</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             
             <div className="mt-6 pt-4 border-t border-slate-100 text-center">
