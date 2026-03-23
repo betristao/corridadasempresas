@@ -28,7 +28,7 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 app.get("/api/auth/strava/url", (req, res) => {
   const appUrl = process.env.APP_URL || "https://corridadasempresas.netlify.app";
-  const redirectUri = `${appUrl}/auth/callback`;
+  const redirectUri = `${appUrl}/api/auth/callback`;
   
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID || "",
