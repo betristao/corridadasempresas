@@ -51,30 +51,11 @@ export default function Landing() {
     setIsConnecting(true);
     try {
       const response = await fetch('/api/auth/strava/url');
-      if (!response.ok) throw new Error('Falha ao obter URL de autenticação. Verifique a sua ligação.');
+      if (!response.ok) throw new Error('Falha ao obter URL de autenticação.');
       const { url } = await response.json();
       
-      const isMobile = window.innerWidth < 1024 && (
-        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
-        (navigator.maxTouchPoints > 0 && !/Macintosh/i.test(navigator.userAgent)) ||
-        (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent)) // iPad Pro
-      );
-
-      if (isMobile) {
-        // Direct redirect on mobile to avoid popup blockers
-        window.location.href = url;
-      } else {
-        const authWindow = window.open(
-          url,
-          'strava_oauth',
-          'width=600,height=700'
-        );
-
-        if (!authWindow) {
-          // If popup blocked, fallback to direct redirect
-          window.location.href = url;
-        }
-      }
+      // Always use redirect for 100% reliability and to avoid popup blockers
+      window.location.href = url;
     } catch (error) {
       console.error('OAuth error:', error);
       setIsConnecting(false);
@@ -228,6 +209,10 @@ export default function Landing() {
           </div>
         </div>
       </main>
+
+      <footer className="max-w-7xl mx-auto px-4 py-8 text-center text-xs text-slate-400">
+        &copy; 2026 CorpRun B2B &bull; v1.0.4 (Redirecionamentos Directos)
+      </footer>
     </div>
   );
 }
