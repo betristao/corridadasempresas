@@ -65,18 +65,62 @@ app.get(/(.*\/)?(auth\/)?callback/, async (req, res) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Token exchange failed");
 
+    // NEW: Fetch last 30 days of activities
+    let stats = { totalDistance: 0, weeklyActivities: [] as any[] };
+    try {
+      const activitiesResponse = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=30", {
+        headers: { "Authorization": `Bearer ${data.access_token}` }
+      });
+      if (activitiesResponse.ok) {
+        const activities = await activitiesResponse.json();
+        
+        // Calculate total distance (all activities in the batch)
+        const totalMeters = activities.reduce((sum: number, act: any) => sum + (act.distance || 0), 0);
+        stats.totalDistance = parseFloat((totalMeters / 1000).toFixed(1));
+
+        // Format for the chart (last 7 days)
+        const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (6 - i));
+          return { 
+            day: days[d.getDay()], 
+            dateString: d.toISOString().split('T')[0],
+            km: 0 
+          };
+        });
+
+        activities.forEach((act: any) => {
+          const actDate = act.start_date_local.split('T')[0];
+          const dayMatch = last7Days.find(d => d.dateString === actDate);
+          if (dayMatch) {
+            dayMatch.km += (act.distance / 1000);
+          }
+        });
+
+        stats.weeklyActivities = last7Days.map(d => ({
+          day: d.day,
+          km: parseFloat(d.km.toFixed(1))
+        }));
+      }
+    } catch (activityErr) {
+      console.error("[Activity Fetch Error]", activityErr);
+    }
+
     res.send(`
       <html><body>
         <script>
           if (window.opener) {
             window.opener.postMessage({ 
               type: 'STRAVA_AUTH_SUCCESS', 
-              athlete: ${JSON.stringify(data.athlete)} 
+              athlete: ${JSON.stringify(data.athlete)},
+              stats: ${JSON.stringify(stats)}
             }, '*');
             window.close();
           } else {
             // Fallback if not opened as popup
             localStorage.setItem('strava_athlete', '${JSON.stringify(data.athlete)}');
+            localStorage.setItem('strava_stats', '${JSON.stringify(stats)}');
             window.location.href = '/?auth=success';
           }
         </script>

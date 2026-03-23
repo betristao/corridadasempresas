@@ -18,9 +18,10 @@ export default function Landing() {
       
       if (event.data?.type === 'STRAVA_AUTH_SUCCESS') {
         // Strava connected successfully, now ask for corporate email
-        const athlete = event.data.athlete;
+        const { athlete, stats } = event.data; // Destructure stats
         if (athlete) {
-          localStorage.setItem('strava_athlete', JSON.stringify(athlete));
+          // Store athlete and stats together
+          localStorage.setItem('strava_athlete_data', JSON.stringify({ athlete, stats: stats || { totalDistance: 0, weeklyActivities: [] } }));
         }
         setShowEmailStep(true);
         setIsConnecting(false);
@@ -62,8 +63,10 @@ export default function Landing() {
     e.preventDefault();
     if (!email.includes('@')) return;
     
-    const athleteStr = localStorage.getItem('strava_athlete');
-    const athlete = athleteStr ? JSON.parse(athleteStr) : null;
+    const dataStr = localStorage.getItem('strava_athlete_data');
+    const stravaData = dataStr ? JSON.parse(dataStr) : null;
+    const athlete = stravaData?.athlete;
+    const stats = stravaData?.stats;
     const athleteName = athlete ? `${athlete.firstname} ${athlete.lastname}` : "Atleta CorpRun";
 
     // Extract domain to map to company
@@ -75,7 +78,8 @@ export default function Landing() {
       email,
       domain,
       name: athleteName,
-      companyName: domain.split('.')[0].toUpperCase()
+      companyName: domain.split('.')[0].toUpperCase(),
+      stats
     }));
     
     navigate('/dashboard');

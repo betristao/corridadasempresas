@@ -24,7 +24,16 @@ const INTERNAL_LEADERBOARD = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<{email: string, domain: string, name: string, companyName: string} | null>(null);
+  const [user, setUser] = useState<{
+    email: string, 
+    domain: string, 
+    name: string, 
+    companyName: string,
+    stats?: {
+      totalDistance: number,
+      weeklyActivities: { day: string, km: number }[]
+    }
+  } | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('corprun_user');
@@ -37,8 +46,30 @@ export default function Dashboard() {
 
   if (!user) return null;
 
+  const activities = user.stats?.weeklyActivities && user.stats.weeklyActivities.length > 0 
+    ? user.stats.weeklyActivities 
+    : MOCK_ACTIVITIES;
+
+  const userTotalKm = user.stats?.totalDistance ?? 0;
+  const companyBaseKm = 1325.2; // Fixed base for the company
+  const companyTotalKm = (companyBaseKm + userTotalKm).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  // Dynamic ranking simulation
+  const MOCK_OTHERS = [
+    { name: "Sofia Silva", km: 142.5 },
+    { name: "João Santos", km: 98.2 },
+    { name: "Ana Costa", km: 85.0 },
+    { name: "Ricardo Pereira", km: 72.4 },
+  ];
+
+  const combinedLeaderboard = [
+    ...MOCK_OTHERS.map(o => ({ ...o, me: false })),
+    { name: `${user.name} (Tu)`, km: userTotalKm, me: true }
+  ].sort((a, b) => b.km - a.km)
+   .map((athlete, index) => ({ ...athlete, rank: index + 1 }));
+
   const handleShare = () => {
-    alert("Funcionalidade de partilha para o LinkedIn. Gera um gráfico visual com os 124.8km acumulados pela empresa " + user.companyName);
+    alert(`Funcionalidade de partilha para o LinkedIn. Gera um gráfico visual com os ${userTotalKm}km acumulados pela empresa ${user.companyName}`);
   };
 
   return (
@@ -88,7 +119,7 @@ export default function Dashboard() {
               <span className="font-medium">O Seu Contributo</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold tracking-tight">124.8</span>
+              <span className="text-4xl font-extrabold tracking-tight">{userTotalKm}</span>
               <span className="text-slate-500 font-medium">km</span>
             </div>
             <div className="mt-4 text-sm text-green-600 flex items-center gap-1 font-medium">
@@ -102,7 +133,7 @@ export default function Dashboard() {
               <span className="font-medium">Total {user.companyName}</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold tracking-tight">1,450</span>
+              <span className="text-4xl font-extrabold tracking-tight">{companyTotalKm}</span>
               <span className="text-slate-500 font-medium">km</span>
             </div>
             <div className="mt-4 text-sm text-slate-500 font-medium">
@@ -133,7 +164,7 @@ export default function Dashboard() {
             <h3 className="font-bold text-lg mb-6">A Sua Actividade Recente</h3>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={MOCK_ACTIVITIES} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <BarChart data={activities} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                   <Tooltip 
@@ -141,7 +172,7 @@ export default function Dashboard() {
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="km" radius={[4, 4, 0, 0]}>
-                    {MOCK_ACTIVITIES.map((entry, index) => (
+                    {activities.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.km > 0 ? '#f97316' : '#e2e8f0'} />
                     ))}
                   </Bar>
@@ -158,7 +189,7 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-4 flex-1">
-              {INTERNAL_LEADERBOARD.map((athlete) => (
+              {combinedLeaderboard.map((athlete) => (
                 <div 
                   key={athlete.rank} 
                   className={cn(
@@ -176,10 +207,10 @@ export default function Dashboard() {
                     {athlete.rank}
                   </div>
                   <div className="flex-1 font-medium text-sm truncate">
-                    {athlete.name} {athlete.me && "(Tu)"}
+                    {athlete.name}
                   </div>
                   <div className="font-bold text-sm">
-                    {athlete.km} <span className="text-slate-500 font-normal text-xs">km</span>
+                    {athlete.km.toFixed(1)} <span className="text-slate-500 font-normal text-xs">km</span>
                   </div>
                 </div>
               ))}
