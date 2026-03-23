@@ -8,7 +8,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://www.strava.com https://dgalywyr863hv.cloudfront.net; connect-src 'self' https://www.strava.com;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://www.strava.com https://dgalywyr863hv.cloudfront.net; connect-src 'self' https://www.strava.com https://corridadasempresas.netlify.app;"
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
 
@@ -16,11 +16,13 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+  force = true
 
 [[redirects]]
-  from = "/auth/callback"
-  to = "/.netlify/functions/api/auth/callback"
+  from = "/auth/*"
+  to = "/.netlify/functions/api/auth/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
