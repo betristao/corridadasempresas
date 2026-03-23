@@ -11,19 +11,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Log requests for debugging (will show up in Netlify logs)
+// Fix CSP issues reported by user
 app.use((req, res, next) => {
-  console.log(`[Backend Request] ${req.method} ${req.path}`);
+  res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; img-src * data:; font-src * data:; frame-ancestors 'self';");
   next();
 });
 
-// API health Check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+// Log requests for debugging
+app.use((req, res, next) => {
+  console.log(`[Backend Request] ${req.method} ${req.path} - Query: ${JSON.stringify(req.query)}`);
+  next();
+});
+
+// API health Check - using wildcard for robustness
+app.get("*/health", (req, res) => {
+  res.json({ status: "ok", path: req.path });
 });
 
 // 1. Generate Strava OAuth URL
-app.get("/api/auth/strava/url", (req, res) => {
+app.get("*/auth/strava/url", (req, res) => {
   const appUrl = process.env.APP_URL || "";
   const redirectUri = `${appUrl}/auth/callback`;
   
@@ -39,9 +45,9 @@ app.get("/api/auth/strava/url", (req, res) => {
   res.json({ url: authUrl });
 });
 
-// 2. Strava OAuth Callback Handler (Token Exchange)
-// We handle both /auth/callback and /api/auth/callback just in case
-app.get(["/auth/callback", "/api/auth/callback"], async (req, res) => {
+// 2. Strava OAuth Callback Handler
+// Using wildcard to match any prefix (like /api/auth/callback or /auth/callback)
+app.get("*/auth/callback", async (req, res) => {
   const { code, error } = req.query;
 
   console.log(`[Strava Callback] code=${code ? 'present' : 'missing'}, error=${error || 'none'}`);
@@ -61,7 +67,7 @@ app.get(["/auth/callback", "/api/auth/callback"], async (req, res) => {
   }
 
   if (!code) {
-    return res.status(400).send("No code provided");
+    return res.status(400).send("No code provided. Make sure to come from Strava.");
   }
 
   try {
@@ -118,7 +124,7 @@ app.get(["/auth/callback", "/api/auth/callback"], async (req, res) => {
 // Final catch-all for debugging
 app.use((req, res) => {
   console.log(`[404] No route matched for ${req.path}`);
-  res.status(404).send(`Cannot ${req.method} ${req.path}`);
+  res.status(404).send(`Cannot ${req.method} ${req.path} (Catch-all reached)`);
 });
 
 export const handler = serverless(app);

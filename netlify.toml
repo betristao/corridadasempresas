@@ -7,12 +7,12 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api"
+  to = "/.netlify/functions/api/:splat"
   status = 200
 
 [[redirects]]
   from = "/auth/*"
-  to = "/.netlify/functions/api"
+  to = "/.netlify/functions/api/auth/:splat"
   status = 200
 
 [[redirects]]
