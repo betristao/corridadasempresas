@@ -1,21 +1,19 @@
-import express, { Router } from "express";
+import express from "express";
 import serverless from "serverless-http";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
-const router = Router();
-
 app.use(express.json());
 
-// API health Check
-router.get("/health", (req, res) => {
+// API health endpoint
+app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
 // 1. Generate Strava OAuth URL
-router.get("/auth/strava/url", (req, res) => {
+app.get("/api/auth/strava/url", (req, res) => {
   const appUrl = process.env.APP_URL || "";
   const redirectUri = `${appUrl}/auth/callback`;
   
@@ -32,7 +30,7 @@ router.get("/auth/strava/url", (req, res) => {
 });
 
 // 2. Strava OAuth Callback Handler (Token Exchange)
-router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
+app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
   const { code, error } = req.query;
 
   if (error) {
@@ -103,9 +101,5 @@ router.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
     `);
   }
 });
-
-// On Netlify, we need to handle the base path of the function
-app.use("/.netlify/functions/api", router);
-app.use("/api", router);
 
 export const handler = serverless(app);

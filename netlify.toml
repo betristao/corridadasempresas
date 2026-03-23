@@ -6,18 +6,13 @@
   directory = "netlify/functions"
 
 [[redirects]]
-  from = "/api/auth/strava/url"
-  to = "/.netlify/functions/api/auth/strava/url"
-  status = 200
-
-[[redirects]]
-  from = "/auth/callback"
-  to = "/.netlify/functions/api/auth/callback"
-  status = 200
-
-[[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/auth/*"
+  to = "/.netlify/functions/api"
   status = 200
 
 [[redirects]]
