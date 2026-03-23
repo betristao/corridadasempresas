@@ -139,7 +139,7 @@ export default function Landing() {
                     onClick={handleConnectStrava}
                     disabled={isConnecting}
                     className={cn(
-                      "w-full flex items-center justify-center gap-3 bg-[#FC4C02] hover:bg-[#E34402] text-white py-3 px-4 rounded-xl font-semibold transition-all",
+                      "w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold triangle-animation shadow-lg shadow-red-200 transition-all",
                       isConnecting && "opacity-70 cursor-not-allowed"
                     )}
                   >
@@ -148,7 +148,7 @@ export default function Landing() {
                     ) : (
                       <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
                     )}
-                    {isConnecting ? "A conectar..." : "Conectar com Strava"}
+                    {isConnecting ? "A conectar..." : "Conectar Strava (v1.0.5)"}
                   </button>
               </div>
             ) : (
