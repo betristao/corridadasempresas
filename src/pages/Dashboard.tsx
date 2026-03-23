@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Activity, ArrowUpRight, Building2, Share2, Trophy } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { cn } from "../lib/utils";
+import { db } from "../lib/firebase";
+import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
 
 // Mock Data for MVP Prototype
 const MOCK_ACTIVITIES = [
@@ -35,6 +37,9 @@ export default function Dashboard() {
     }
   } | null>(null);
 
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const stored = localStorage.getItem('corprun_user');
     if (!stored) {
@@ -42,31 +47,75 @@ export default function Dashboard() {
       return;
     }
     setUser(JSON.parse(stored));
+
+    // Real-time listener for all users
+    const q = query(collection(db, "users"), orderBy("stats.totalDistance", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAllUsers(usersData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [navigate]);
 
-  if (!user) return null;
+  if (!user || loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="animate-pulse flex flex-col items-center gap-4">
+        <Activity className="text-orange-500 w-12 h-12 animate-bounce" />
+        <p className="text-slate-500 font-medium">A sincronizar dados reais...</p>
+      </div>
+    </div>
+  );
+
+  // 1. Internal Leaderboard (Users from the same company)
+  const companyUsers = allUsers.filter(u => u.companyName === user.companyName);
+  
+  // If company has few users, mix with some mocks for the prototype display
+  const internalLeaderboard = companyUsers.length >= 3 
+    ? companyUsers.map((u, i) => ({
+        rank: i + 1,
+        name: u.id === localStorage.getItem('strava_athlete_data') ? `${u.name} (Tu)` : u.name,
+        km: u.stats?.totalDistance || 0,
+        me: u.name === user.name && u.companyName === user.companyName
+      }))
+    : [
+        ...companyUsers.map((u, i) => ({
+          rank: i + 1,
+          name: u.name === user.name ? `${u.name} (Tu)` : u.name,
+          km: u.stats?.totalDistance || 0,
+          me: u.name === user.name
+        })),
+        { rank: companyUsers.length + 1, name: "Sofia Silva (Demo)", km: 142.5, me: false },
+        { rank: companyUsers.length + 2, name: "João Santos (Demo)", km: 98.2, me: false }
+      ].sort((a, b) => b.km - a.km).map((p, i) => ({ ...p, rank: i + 1 }));
+
+  // 2. Global B2B Ranking (Aggregated by Company)
+  const companyAggregation: Record<string, { name: string, km: number, userCount: number }> = {};
+  allUsers.forEach(u => {
+    if (!companyAggregation[u.companyName]) {
+      companyAggregation[u.companyName] = { name: u.companyName, km: 0, userCount: 0 };
+    }
+    companyAggregation[u.companyName].km += (u.stats?.totalDistance || 0);
+    companyAggregation[u.companyName].userCount += 1;
+  });
+
+  const globalRanking = Object.values(companyAggregation)
+    .sort((a, b) => b.km - a.km);
+  
+  const myCompanyRank = globalRanking.findIndex(c => c.name === user.companyName) + 1;
+  const totalCompanies = globalRanking.length;
 
   const activities = user.stats?.weeklyActivities && user.stats.weeklyActivities.length > 0 
     ? user.stats.weeklyActivities 
     : MOCK_ACTIVITIES;
 
   const userTotalKm = user.stats?.totalDistance ?? 0;
-  const companyBaseKm = 1325.2; // Fixed base for the company
-  const companyTotalKm = (companyBaseKm + userTotalKm).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-  // Dynamic ranking simulation
-  const MOCK_OTHERS = [
-    { name: "Sofia Silva", km: 142.5 },
-    { name: "João Santos", km: 98.2 },
-    { name: "Ana Costa", km: 85.0 },
-    { name: "Ricardo Pereira", km: 72.4 },
-  ];
-
-  const combinedLeaderboard = [
-    ...MOCK_OTHERS.map(o => ({ ...o, me: false })),
-    { name: `${user.name} (Tu)`, km: userTotalKm, me: true }
-  ].sort((a, b) => b.km - a.km)
-   .map((athlete, index) => ({ ...athlete, rank: index + 1 }));
+  const companyTotalKm = (companyAggregation[user.companyName]?.km || userTotalKm).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const companyUserCount = companyAggregation[user.companyName]?.userCount || 1;
 
   const handleShare = () => {
     alert(`Funcionalidade de partilha para o LinkedIn. Gera um gráfico visual com os ${userTotalKm}km acumulados pela empresa ${user.companyName}`);
@@ -137,7 +186,7 @@ export default function Dashboard() {
               <span className="text-slate-500 font-medium">km</span>
             </div>
             <div className="mt-4 text-sm text-slate-500 font-medium">
-              42 colaboradores activos
+              {companyUserCount} colaboradores activos
             </div>
           </div>
 
@@ -147,11 +196,11 @@ export default function Dashboard() {
               <span className="font-medium">Ranking Global B2B</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold tracking-tight">#14</span>
-              <span className="text-slate-500 font-medium">/ 150</span>
+              <span className="text-4xl font-extrabold tracking-tight">#{myCompanyRank || "?"}</span>
+              <span className="text-slate-500 font-medium">/ {totalCompanies}</span>
             </div>
             <div className="mt-4 text-sm text-slate-500 font-medium">
-              A 45km do Top 10!
+              {myCompanyRank === 1 ? "Líder mundial! 🚀" : "Rumo ao topo!"}
             </div>
           </div>
         </div>
@@ -189,9 +238,9 @@ export default function Dashboard() {
             </div>
             
             <div className="space-y-4 flex-1">
-              {combinedLeaderboard.map((athlete) => (
+              {internalLeaderboard.map((athlete) => (
                 <div 
-                  key={athlete.rank} 
+                  key={`${athlete.name}-${athlete.rank}`} 
                   className={cn(
                     "flex items-center gap-3 p-3 rounded-xl transition-colors",
                     athlete.me ? "bg-orange-50 border border-orange-100" : "hover:bg-slate-50"

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, ArrowRight, Trophy } from "lucide-react";
 import { cn } from "../lib/utils";
+import { db } from "../lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -74,13 +76,23 @@ export default function Landing() {
     
     // In a real app, we would save this to the database (Firebase/Supabase)
     // For the MVP prototype, we store in localStorage and navigate
-    localStorage.setItem('corprun_user', JSON.stringify({
+    const userData = {
       email,
       domain,
       name: athleteName,
       companyName: domain.split('.')[0].toUpperCase(),
-      stats
-    }));
+      stats,
+      profilePic: athlete?.profile || "",
+      lastUpdated: serverTimestamp()
+    };
+
+    localStorage.setItem('corprun_user', JSON.stringify(userData));
+    
+    // Save to Firestore for multi-user sync
+    if (athlete?.id) {
+       setDoc(doc(db, "users", athlete.id.toString()), userData, { merge: true })
+        .catch(err => console.error("Firestore sync error:", err));
+    }
     
     navigate('/dashboard');
   };
