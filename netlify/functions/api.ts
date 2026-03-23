@@ -29,7 +29,7 @@ app.get("/api/auth/strava/url", (req, res) => {
     redirect_uri: redirectUri,
     response_type: "code",
     approval_prompt: "force",
-    scope: "read,activity:read",
+      scope: "read,profile:read_all,activity:read_all",
   });
 
   res.json({ url: `https://www.strava.com/oauth/authorize?${params.toString()}` });
