@@ -51,10 +51,14 @@ export default function Landing() {
     setIsConnecting(true);
     try {
       const response = await fetch('/api/auth/strava/url');
-      if (!response.ok) throw new Error('Failed to get auth URL');
+      if (!response.ok) throw new Error('Falha ao obter URL de autenticação. Verifique a sua ligação.');
       const { url } = await response.json();
       
-      const isMobile = window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isMobile = window.innerWidth < 1024 && (
+        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+        (navigator.maxTouchPoints > 0 && !/Macintosh/i.test(navigator.userAgent)) ||
+        (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent)) // iPad Pro
+      );
 
       if (isMobile) {
         // Direct redirect on mobile to avoid popup blockers

@@ -108,26 +108,57 @@ app.get(/(.*\/)?(auth\/)?callback/, async (req, res) => {
     }
 
     res.send(`
-      <html><body>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({ 
-              type: 'STRAVA_AUTH_SUCCESS', 
-              athlete: ${JSON.stringify(data.athlete)},
-              stats: ${JSON.stringify(stats)}
-            }, '*');
-            window.close();
-          } else {
-            // Fallback if not opened as popup
-            localStorage.setItem('strava_athlete_data', JSON.stringify({ 
-              athlete: ${JSON.stringify(data.athlete)}, 
-              stats: ${JSON.stringify(stats)} 
-            }));
-            window.location.href = '/?auth=success';
-          }
-        </script>
-        <p>Sucesso! A redireccionar...</p>
-      </body></html>
+      <html>
+        <head>
+          <title>Autenticando...</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; text-align: center; }
+            .card { background: white; padding: 2rem; rounded: 1rem; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 90%; }
+            .btn { display: inline-block; background: #FC4C02; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; margin-top: 1rem; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>Quase lá!</h2>
+            <p>A sincronizar os seus dados do Strava...</p>
+            <div id="manual" style="display:none;">
+              <p>Se não for redirecionado automaticamente, clique abaixo:</p>
+              <a href="/?auth=success" class="btn">Voltar ao Dashboard</a>
+            </div>
+          </div>
+          <script>
+            const athlete = ${JSON.stringify(data.athlete)};
+            const stats = ${JSON.stringify(stats)};
+            const dataToStore = JSON.stringify({ athlete, stats });
+
+            function complete() {
+              let handled = false;
+              try {
+                if (window.opener && window.opener !== window) {
+                   window.opener.postMessage({ type: 'STRAVA_AUTH_SUCCESS', athlete, stats }, '*');
+                   handled = true;
+                   setTimeout(() => window.close(), 100);
+                }
+              } catch (e) {
+                console.error("PostMessage failed", e);
+              }
+
+              if (!handled) {
+                localStorage.setItem('strava_athlete_data', dataToStore);
+                window.location.href = '/?auth=success';
+              }
+            }
+
+            // Show manual button after 3 seconds just in case
+            setTimeout(() => {
+              document.getElementById('manual').style.display = 'block';
+            }, 3000);
+
+            complete();
+          </script>
+        </body>
+      </html>
     `);
   } catch (err: any) {
     console.error("[Token Exchange Error]", err);

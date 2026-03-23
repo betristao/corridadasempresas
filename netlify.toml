@@ -8,7 +8,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://www.strava.com https://dgalywyr863hv.cloudfront.net; connect-src 'self' https://www.strava.com https://corridadasempresas.netlify.app;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.strava.com https://*.cloudfront.net https://*.strava.com; connect-src 'self' https://*.strava.com https://corridadasempresas.netlify.app;"
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
 
