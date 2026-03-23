@@ -32,7 +32,7 @@ app.get("/api/auth/strava/url", (req, res) => {
     scope: "read,activity:read",
   });
 
-  res.json({ url: `https://www.strava.com/oauth/mobile/authorize?${params.toString()}` });
+  res.json({ url: `https://www.strava.com/oauth/authorize?${params.toString()}` });
 });
 
 // RESILIENT CALLBACK HANDLER: Matches any path ending in /auth/callback or /callback
@@ -119,8 +119,10 @@ app.get(/(.*\/)?(auth\/)?callback/, async (req, res) => {
             window.close();
           } else {
             // Fallback if not opened as popup
-            localStorage.setItem('strava_athlete', '${JSON.stringify(data.athlete)}');
-            localStorage.setItem('strava_stats', '${JSON.stringify(stats)}');
+            localStorage.setItem('strava_athlete_data', JSON.stringify({ 
+              athlete: ${JSON.stringify(data.athlete)}, 
+              stats: ${JSON.stringify(stats)} 
+            }));
             window.location.href = '/?auth=success';
           }
         </script>

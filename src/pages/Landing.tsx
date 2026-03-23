@@ -12,6 +12,16 @@ export default function Landing() {
   const [showEmailStep, setShowEmailStep] = useState(false);
 
   useEffect(() => {
+    // Check for success redirect from mobile flow
+    if (window.location.search.includes('auth=success')) {
+      const dataStr = localStorage.getItem('strava_athlete_data');
+      if (dataStr) {
+        setShowEmailStep(true);
+        // Clean URL
+        window.history.replaceState({}, document.title, "/");
+      }
+    }
+
     const handleMessage = (event: MessageEvent) => {
       // Allow messages from our own origin
       if (event.origin !== window.location.origin && !event.origin.includes('localhost') && !event.origin.includes('.run.app')) {
@@ -42,18 +52,24 @@ export default function Landing() {
     try {
       const response = await fetch('/api/auth/strava/url');
       if (!response.ok) throw new Error('Failed to get auth URL');
-      
       const { url } = await response.json();
       
-      const authWindow = window.open(
-        url,
-        'strava_oauth',
-        'width=600,height=700'
-      );
+      const isMobile = window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-      if (!authWindow) {
-        alert('Por favor, permita popups para conectar a sua conta Strava.');
-        setIsConnecting(false);
+      if (isMobile) {
+        // Direct redirect on mobile to avoid popup blockers
+        window.location.href = url;
+      } else {
+        const authWindow = window.open(
+          url,
+          'strava_oauth',
+          'width=600,height=700'
+        );
+
+        if (!authWindow) {
+          // If popup blocked, fallback to direct redirect
+          window.location.href = url;
+        }
       }
     } catch (error) {
       console.error('OAuth error:', error);
